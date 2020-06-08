@@ -720,6 +720,10 @@ func (f *framer) readErrorMap() (errMap ErrorMap) {
 }
 
 func (f *framer) writeHeader(flags byte, op frameOp, stream int) {
+	if op == 0 {
+		Logger.Printf("[WARN]: Op Code was 0, this should not happen. Flags: %+v, stream: %d", flags, stream)
+	}
+
 	f.wbuf = f.wbuf[:0]
 	f.wbuf = append(f.wbuf,
 		f.proto,
@@ -764,6 +768,14 @@ func (f *framer) finishWrite() error {
 		// huge app frame, lets remove it so it doesn't bloat the heap
 		f.wbuf = make([]byte, defaultBufSize)
 		return ErrFrameTooBig
+	}
+
+	p := 4
+	if f.proto < protoVersion3 {
+		p = 3
+	}
+	if f.wbuf[p] == 0 {
+		Logger.Printf("[WARN]: finishWrite called without setting op. f.wbuf[%d] was 0", p)
 	}
 
 	if f.wbuf[1]&flagCompress == flagCompress {

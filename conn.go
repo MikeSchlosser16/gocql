@@ -213,7 +213,6 @@ func (s *Session) dialWithoutObserver(ctx context.Context, host *HostInfo, cfg *
 		dialer = d
 	}
 
-
 	conn, err := dialer.DialContext(ctx, "tcp", host.HostnameAndPort())
 	if err != nil {
 		return nil, err
@@ -530,11 +529,12 @@ func (c *Conn) serve(ctx context.Context) {
 }
 
 func (c *Conn) discardFrame(head frameHeader) error {
+	Logger.Printf("Discarding frameHeader: %+v, of len: %d", head, head.length)
 	_, err := io.CopyN(ioutil.Discard, c, int64(head.length))
 	if err != nil {
 		return err
 	}
-	return nil
+	return errors.New("marking error as frame was discarded")
 }
 
 type protocolError struct {
@@ -658,7 +658,13 @@ func (c *Conn) recv(ctx context.Context) error {
 	delete(c.calls, head.stream)
 	c.mu.Unlock()
 	if call == nil || call.framer == nil || !ok {
-		Logger.Printf("gocql: received response for stream which has no handler: header=%v\n", head)
+		Logger.Printf("gocql: received response for stream which has no handler: header=%v. %+v, \n", head)
+		if call != nil {
+			if call.framer != nil {
+				Logger.Printf("[WARN]: gocql: call.framer not nil. Info- flags: %+v, header: %+v, header.op: %+v", call.framer.flags, *call.framer.header, call.framer.header.op)
+			}
+		}
+
 		return c.discardFrame(head)
 	} else if head.stream != call.streamID {
 		panic(fmt.Sprintf("call has incorrect streamID: got %d expected %d", call.streamID, head.stream))
