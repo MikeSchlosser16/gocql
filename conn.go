@@ -534,7 +534,8 @@ func (c *Conn) discardFrame(head frameHeader) error {
 	if err != nil {
 		return err
 	}
-	return errors.New("marking error as frame was discarded")
+	//return errors.New("marking error as frame was discarded")
+	return nil
 }
 
 type protocolError struct {
